@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-enum BorderType {
+#[derive(Debug, PartialEq)]
+pub enum BorderType {
     Box,
 }
 impl BorderType {
@@ -25,10 +26,10 @@ enum BorderPart {
     RightBottomCorner,
 }
 
-#[derive(PartialEq, Eq, Hash)]
-struct Point {
-    x: usize,
-    y: usize,
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct Point {
+    pub x: usize,
+    pub y: usize,
 }
 impl Point {
     fn new_with_anchor(x: usize, y: usize, anchor: &Point) -> Self {
@@ -39,9 +40,10 @@ impl Point {
     }
 }
 
-struct Node {
-    name: String,
-    border: BorderType,
+#[derive(Debug, PartialEq)]
+pub struct Node {
+    pub name: String,
+    pub border: BorderType,
 }
 impl Node {
     fn grab_characters(&self, anchor: &Point) -> HashMap<Point, char> {
@@ -110,8 +112,8 @@ enum ArrowDirection {
     VerticalDown,
 }
 
-#[derive(PartialEq, Eq, Hash)]
-enum ArrowBody {
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum ArrowBody {
     Basic,
 }
 impl ArrowBody {
@@ -125,8 +127,8 @@ impl ArrowBody {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
-enum ArrowHead {
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum ArrowHead {
     Basic,
 }
 impl ArrowHead {
@@ -140,13 +142,13 @@ impl ArrowHead {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
-struct Arrow {
-    start: Point,
-    middle: Point,
-    end: Point,
-    body: ArrowBody,
-    head: ArrowHead,
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct Arrow {
+    pub start: Point,
+    pub middle: Point,
+    pub end: Point,
+    pub body: ArrowBody,
+    pub head: ArrowHead,
 }
 impl Arrow {
     fn grab_characters(&self) -> HashMap<Point, char> {
@@ -218,12 +220,13 @@ impl Arrow {
     }
 }
 
-struct Map {
-    nodes: HashMap<Point, Node>,
-    arrows: HashSet<Arrow>,
+#[derive(Debug, PartialEq)]
+pub struct Map {
+    pub nodes: HashMap<Point, Node>,
+    pub arrows: HashSet<Arrow>,
 }
 impl Map {
-    fn get_picture(&self) -> String {
+    pub fn get_picture(&self) -> String {
         let mut chars: HashMap<Point, char> = HashMap::new();
         for node in &self.nodes {
             let characters = node.1.grab_characters(&node.0);

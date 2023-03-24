@@ -4,6 +4,6 @@ mod graphust;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-
-    graphust::test();
+    // let test = graphust::input::read_input("A -> B");
+    graphust::example_01();
 }
