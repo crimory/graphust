@@ -142,6 +142,7 @@ fn add_horizontal_arrows(map: &mut domain::Map, inner_mapping: &Vec<&InnerMappin
 }
 
 fn add_vertical_arrows(map: &mut domain::Map, inner_mapping: &Vec<&InnerMapping>) {
+    let mut y_diff = 2;
     inner_mapping.iter().for_each(|x| {
         let source_point = get_point_next_to_box(&map.nodes, x.source, &Anchor::Bottom);
         let target_point = get_point_next_to_box(&map.nodes, x.target, &Anchor::Bottom);
@@ -150,12 +151,16 @@ fn add_vertical_arrows(map: &mut domain::Map, inner_mapping: &Vec<&InnerMapping>
         match (source_point, target_point) {
             (s, t) if s.y == t.y && (t.x as isize - s.x as isize).abs() > expected_x_diff => {
                 map.arrows.insert(domain::Arrow {
-                    middle: domain::Point { x: s.x, y: s.y + 2 },
+                    middle: domain::Point {
+                        x: s.x,
+                        y: s.y + y_diff,
+                    },
                     start: s,
                     end: t,
                     body: domain::ArrowBody::Basic,
                     head: domain::ArrowHead::Basic,
                 });
+                y_diff += 1;
             }
             (_, _) => (),
         }
@@ -401,6 +406,89 @@ B -> A";
             start: domain::Point { x: 8, y: 2 },
             middle: domain::Point { x: 7, y: 2 },
             end: domain::Point { x: 6, y: 2 },
+            body: domain::ArrowBody::Basic,
+            head: domain::ArrowHead::Basic,
+        });
+        let expected = domain::Map { nodes, arrows };
+
+        let result = read_input(&input);
+        if let Ok(mapped_result) = result {
+            assert_eq!(expected, mapped_result);
+        } else {
+            panic!("Map should not be None for this input!");
+        }
+    }
+
+    #[test]
+    fn get_map_example05() {
+        let input = "\
+A -> B
+B -> C
+C -> D
+D -> A
+D -> B";
+        let mut nodes: HashMap<domain::Point, domain::Node> = HashMap::new();
+        nodes.insert(
+            domain::Point { x: 0, y: 0 },
+            domain::Node {
+                name: "A".to_owned(),
+                border: domain::BorderType::Box,
+            },
+        );
+        nodes.insert(
+            domain::Point { x: 10, y: 0 },
+            domain::Node {
+                name: "B".to_owned(),
+                border: domain::BorderType::Box,
+            },
+        );
+        nodes.insert(
+            domain::Point { x: 20, y: 0 },
+            domain::Node {
+                name: "C".to_owned(),
+                border: domain::BorderType::Box,
+            },
+        );
+        nodes.insert(
+            domain::Point { x: 30, y: 0 },
+            domain::Node {
+                name: "D".to_owned(),
+                border: domain::BorderType::Box,
+            },
+        );
+        let mut arrows: HashSet<domain::Arrow> = HashSet::new();
+        arrows.insert(domain::Arrow {
+            start: domain::Point { x: 6, y: 1 },
+            middle: domain::Point { x: 7, y: 1 },
+            end: domain::Point { x: 8, y: 1 },
+            body: domain::ArrowBody::Basic,
+            head: domain::ArrowHead::Basic,
+        });
+        arrows.insert(domain::Arrow {
+            start: domain::Point { x: 16, y: 1 },
+            middle: domain::Point { x: 17, y: 1 },
+            end: domain::Point { x: 18, y: 1 },
+            body: domain::ArrowBody::Basic,
+            head: domain::ArrowHead::Basic,
+        });
+        arrows.insert(domain::Arrow {
+            start: domain::Point { x: 26, y: 1 },
+            middle: domain::Point { x: 27, y: 1 },
+            end: domain::Point { x: 28, y: 1 },
+            body: domain::ArrowBody::Basic,
+            head: domain::ArrowHead::Basic,
+        });
+        arrows.insert(domain::Arrow {
+            start: domain::Point { x: 32, y: 3 },
+            middle: domain::Point { x: 32, y: 5 },
+            end: domain::Point { x: 2, y: 3 },
+            body: domain::ArrowBody::Basic,
+            head: domain::ArrowHead::Basic,
+        });
+        arrows.insert(domain::Arrow {
+            start: domain::Point { x: 32, y: 3 },
+            middle: domain::Point { x: 32, y: 6 },
+            end: domain::Point { x: 12, y: 3 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });

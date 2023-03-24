@@ -8,7 +8,7 @@ fn main() {
         println!("Example usage: graphust \"A -> B\"");
         return;
     }
-    
+
     let output = graphust::get_graph(&args[1]);
     if let Ok(output) = output {
         println!("{}", output);
