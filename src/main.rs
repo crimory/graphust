@@ -4,10 +4,11 @@ mod graphust;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
+    if args.len() < 2 {
         println!("Example usage: graphust \"A -> B\"");
         return;
     }
+    
     let output = graphust::get_graph(&args[1]);
     if let Ok(output) = output {
         println!("{}", output);
