@@ -3,21 +3,21 @@ use std::collections::{HashMap, HashSet};
 use crate::graphust::domain;
 
 #[derive(Debug)]
-struct InnerMapping<'a> {
-    source: &'a str,
-    arrow: &'a str,
-    target: &'a str,
+struct InnerMapping {
+    source: String,
+    arrow: String,
+    target: String,
 }
 
 const BOX_WIDTH: usize = 4;
 const BOX_HEIGHT: usize = 3;
 const ARROW_AND_SPACES_WIDTH: usize = 5;
 
-fn add_nodes(map: &mut domain::Map, inner_mapping: &Vec<&InnerMapping>) {
-    let mut inner_nodes = inner_mapping.iter().map(|x| x.source).collect::<Vec<_>>();
-    inner_nodes.extend(inner_mapping.iter().map(|x| x.target));
+fn add_nodes(map: &mut domain::Map, inner_mapping: &[&InnerMapping]) {
+    let mut inner_nodes = inner_mapping.iter().map(|x| &x.source).collect::<Vec<_>>();
+    inner_nodes.extend(inner_mapping.iter().map(|x| &x.target));
     inner_nodes.iter().fold(0, |acc, label| {
-        if map.nodes.iter().find(|x| x.1.name == **label).is_some() {
+        if map.nodes.iter().any(|x| x.1.name == **label) {
             return acc;
         }
         map.nodes.insert(
@@ -70,65 +70,60 @@ fn get_point_next_to_box(
     }
 }
 
-fn add_horizontal_arrows(map: &mut domain::Map, inner_mapping: &Vec<&InnerMapping>) {
+fn has_arrow_already(map: &domain::Map, start: &domain::Point, end: &domain::Point) -> bool {
+    map.arrows
+        .iter()
+        .any(|a| a.start == *start && a.end == *end || a.start == *end && a.end == *start)
+}
+
+fn read_arrow_body(arrow: &str) -> domain::ArrowBody {
+    match arrow {
+        a if a.starts_with('-') => domain::ArrowBody::Basic,
+        _ => domain::ArrowBody::Basic,
+    }
+}
+
+fn read_arrow_head(arrow: &str) -> domain::ArrowHead {
+    match arrow {
+        a if a.ends_with('>') => domain::ArrowHead::Basic,
+        _ => domain::ArrowHead::Basic,
+    }
+}
+
+fn add_horizontal_arrows(map: &mut domain::Map, inner_mapping: &[&InnerMapping]) {
     let mapping_point_pairs = [(Anchor::Right, Anchor::Left), (Anchor::Left, Anchor::Right)];
     inner_mapping.iter().for_each(|x| {
         mapping_point_pairs
             .iter()
             .for_each(|(source_anchor, target_anchor)| {
-                let source_point = get_point_next_to_box(&map.nodes, x.source, source_anchor);
-                let target_point = get_point_next_to_box(&map.nodes, x.target, target_anchor);
+                let source_point = get_point_next_to_box(&map.nodes, &x.source, source_anchor);
+                let target_point = get_point_next_to_box(&map.nodes, &x.target, target_anchor);
 
                 let possible_new_arrow = match (source_point, target_point) {
-                    (s, t) if s.y == t.y && t.x as isize - s.x as isize == 2 => {
-                        if map
-                            .arrows
-                            .iter()
-                            .any(|a| a.start == s && a.end == t || a.start == t && a.end == s)
-                        {
+                    (s, t) if s.y == t.y && (t.x as isize - s.x as isize).abs() == 2 => {
+                        let middle_x_relating_to_start: isize = if s.x < t.x { 1 } else { -1 };
+                        let middle_point = domain::Point {
+                            x: (s.x as isize + middle_x_relating_to_start) as usize,
+                            y: s.y,
+                        };
+                        if has_arrow_already(map, &s, &t) {
                             Some(domain::Arrow {
                                 middle: domain::Point {
-                                    x: s.x + 1,
                                     y: s.y + 1,
+                                    ..middle_point
                                 },
                                 start: domain::Point { y: s.y + 1, ..s },
                                 end: domain::Point { y: t.y + 1, ..t },
-                                body: domain::ArrowBody::Basic,
-                                head: domain::ArrowHead::Basic,
+                                body: read_arrow_body(&x.arrow),
+                                head: read_arrow_head(&x.arrow),
                             })
                         } else {
                             Some(domain::Arrow {
-                                middle: domain::Point { x: s.x + 1, y: s.y },
+                                middle: middle_point,
                                 start: s,
                                 end: t,
-                                body: domain::ArrowBody::Basic,
-                                head: domain::ArrowHead::Basic,
-                            })
-                        }
-                    }
-                    (s, t) if s.y == t.y && t.x as isize - s.x as isize == -2 => {
-                        if map
-                            .arrows
-                            .iter()
-                            .any(|a| a.start == s && a.end == t || a.start == t && a.end == s)
-                        {
-                            Some(domain::Arrow {
-                                middle: domain::Point {
-                                    x: s.x - 1,
-                                    y: s.y + 1,
-                                },
-                                start: domain::Point { y: s.y + 1, ..s },
-                                end: domain::Point { y: t.y + 1, ..t },
-                                body: domain::ArrowBody::Basic,
-                                head: domain::ArrowHead::Basic,
-                            })
-                        } else {
-                            Some(domain::Arrow {
-                                middle: domain::Point { x: s.x - 1, y: s.y },
-                                start: s,
-                                end: t,
-                                body: domain::ArrowBody::Basic,
-                                head: domain::ArrowHead::Basic,
+                                body: read_arrow_body(&x.arrow),
+                                head: read_arrow_head(&x.arrow),
                             })
                         }
                     }
@@ -141,44 +136,74 @@ fn add_horizontal_arrows(map: &mut domain::Map, inner_mapping: &Vec<&InnerMappin
     });
 }
 
-fn add_vertical_arrows(map: &mut domain::Map, inner_mapping: &Vec<&InnerMapping>) {
-    let mut y_diff = 2;
+fn add_vertical_arrows(map: &mut domain::Map, inner_mapping: &[&InnerMapping]) {
+    let mut y_diff = 1;
     inner_mapping.iter().for_each(|x| {
-        let source_point = get_point_next_to_box(&map.nodes, x.source, &Anchor::Bottom);
-        let target_point = get_point_next_to_box(&map.nodes, x.target, &Anchor::Bottom);
+        let source_point = get_point_next_to_box(&map.nodes, &x.source, &Anchor::Bottom);
+        let target_point = get_point_next_to_box(&map.nodes, &x.target, &Anchor::Bottom);
         let expected_x_diff = (x.source.len() + ARROW_AND_SPACES_WIDTH + BOX_WIDTH) as isize;
 
-        match (source_point, target_point) {
+        let possible_new_arrow = match (source_point, target_point) {
             (s, t) if s.y == t.y && (t.x as isize - s.x as isize).abs() > expected_x_diff => {
-                map.arrows.insert(domain::Arrow {
+                y_diff += 1;
+                Some(domain::Arrow {
                     middle: domain::Point {
                         x: s.x,
                         y: s.y + y_diff,
                     },
                     start: s,
                     end: t,
-                    body: domain::ArrowBody::Basic,
-                    head: domain::ArrowHead::Basic,
-                });
-                y_diff += 1;
+                    body: read_arrow_body(&x.arrow),
+                    head: read_arrow_head(&x.arrow),
+                })
             }
-            (_, _) => (),
+            (_, _) => None,
+        };
+        if let Some(new_arrow) = possible_new_arrow {
+            map.arrows.insert(new_arrow);
         }
     });
+}
+
+fn get_line_parts_respecting_quotes(line: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut current_part = String::new();
+    let mut in_quotes = false;
+    for c in line.chars() {
+        if c == ' ' && !in_quotes {
+            parts.push(current_part);
+            current_part = String::new();
+        } else if c == '"' {
+            in_quotes = !in_quotes;
+        } else {
+            current_part.push(c);
+        }
+    }
+    parts.push(current_part);
+    parts
 }
 
 fn get_inner_mappings(text: &str) -> Vec<Result<InnerMapping, String>> {
     text.lines()
         .map(|line| {
-            let parts: Vec<_> = line.split(' ').collect();
+            let parts = get_line_parts_respecting_quotes(line);
             if parts.len() != 3 {
                 return Err(format!("Cannot understand this line: {}", line));
             }
-            Ok(InnerMapping {
-                source: parts[0],
-                arrow: parts[1],
-                target: parts[2],
-            })
+            let arrow_correct_direction = !parts[1].starts_with('<');
+            if arrow_correct_direction {
+                Ok(InnerMapping {
+                    source: parts[0].to_owned(),
+                    arrow: parts[1].to_owned(),
+                    target: parts[2].to_owned(),
+                })
+            } else {
+                Ok(InnerMapping {
+                    source: parts[2].to_owned(),
+                    arrow: parts[1].chars().rev().collect::<String>(),
+                    target: parts[0].to_owned(),
+                })
+            }
         })
         .collect::<Vec<_>>()
 }

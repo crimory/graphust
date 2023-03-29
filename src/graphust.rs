@@ -41,4 +41,26 @@ C -> A";
             assert_eq!(expected, ok_output);
         }
     }
+
+    #[test]
+    fn example02() {
+        let input = "\
+\"This is our test\" -> B
+B -> C
+C -> \"This is our test\"";
+        let expected = "\
++------------------+     +---+     +---+
+| This is our test | --> | B | --> | C |
++------------------+     +---+     +---+
+  ^                                  |  
+  |                                  |  
+  |-----------------------------------  
+";
+        let output = get_graph(&input);
+
+        assert!(output.is_ok());
+        if let Ok(ok_output) = output {
+            assert_eq!(expected, ok_output);
+        }
+    }
 }

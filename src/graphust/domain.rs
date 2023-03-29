@@ -229,7 +229,7 @@ impl Map {
     pub fn get_picture(&self) -> String {
         let mut chars: HashMap<Point, char> = HashMap::new();
         for node in &self.nodes {
-            let characters = node.1.grab_characters(&node.0);
+            let characters = node.1.grab_characters(node.0);
             for character in characters {
                 chars.insert(character.0, character.1);
             }
@@ -251,7 +251,7 @@ impl Map {
                     Some(c) => builder.push(*c.1),
                 }
             }
-            builder.push_str("\n");
+            builder.push('\n');
         }
         builder
     }
