@@ -5,7 +5,7 @@ mod graphust;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        println!("Example usage: graphust \"A -> B\"");
+        println!("Example usage: graphust 'A -> B'");
         return;
     }
 

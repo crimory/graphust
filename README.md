@@ -26,4 +26,4 @@ C -> A
 
 ## Author's socials
 ### Youtube
-https://www.youtube.com/@marcinkern
+https://www.youtube.com/@MarcinKern
