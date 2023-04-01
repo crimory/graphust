@@ -228,14 +228,14 @@ pub struct Map {
 impl Map {
     pub fn get_picture(&self) -> String {
         let mut chars: HashMap<Point, char> = HashMap::new();
-        for node in &self.nodes {
-            let characters = node.1.grab_characters(node.0);
+        for arrow in &self.arrows {
+            let characters = arrow.grab_characters();
             for character in characters {
                 chars.insert(character.0, character.1);
             }
         }
-        for arrow in &self.arrows {
-            let characters = arrow.grab_characters();
+        for node in &self.nodes {
+            let characters = node.1.grab_characters(node.0);
             for character in characters {
                 chars.insert(character.0, character.1);
             }
@@ -342,7 +342,7 @@ mod tests {
     }
 
     #[test]
-    fn map_returns() {
+    fn map_returns_two_nodes() {
         let mut nodes: HashMap<Point, Node> = HashMap::new();
         nodes.insert(
             Point { x: 0, y: 0 },
@@ -366,6 +366,108 @@ mod tests {
 +---++---+
 | A || B |
 +---++---+
+";
+        let output = map.get_picture();
+        assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn map_returns_complex() {
+        let mut nodes: HashMap<Point, Node> = HashMap::new();
+        nodes.insert(
+            Point { x: 0, y: 0 },
+            Node {
+                name: "A".to_owned(),
+                border: BorderType::Box,
+            },
+        );
+        nodes.insert(
+            Point { x: 10, y: 0 },
+            Node {
+                name: "B".to_owned(),
+                border: BorderType::Box,
+            },
+        );
+        nodes.insert(
+            Point { x: 20, y: 0 },
+            Node {
+                name: "C".to_owned(),
+                border: BorderType::Box,
+            },
+        );
+        nodes.insert(
+            Point { x: 30, y: 0 },
+            Node {
+                name: "D".to_owned(),
+                border: BorderType::Box,
+            },
+        );
+        nodes.insert(
+            Point { x: 20, y: 4 },
+            Node {
+                name: "E".to_owned(),
+                border: BorderType::Box,
+            },
+        );
+        nodes.insert(
+            Point { x: 30, y: 4 },
+            Node {
+                name: "F".to_owned(),
+                border: BorderType::Box,
+            },
+        );
+        let mut arrows: HashSet<Arrow> = HashSet::new();
+        arrows.insert(Arrow {
+            start: Point { x: 6, y: 1 },
+            middle: Point { x: 7, y: 1 },
+            end: Point { x: 8, y: 1 },
+            body: ArrowBody::Basic,
+            head: ArrowHead::Basic,
+        });
+        arrows.insert(Arrow {
+            start: Point { x: 16, y: 1 },
+            middle: Point { x: 17, y: 1 },
+            end: Point { x: 18, y: 1 },
+            body: ArrowBody::Basic,
+            head: ArrowHead::Basic,
+        });
+        arrows.insert(Arrow {
+            start: Point { x: 26, y: 1 },
+            middle: Point { x: 27, y: 1 },
+            end: Point { x: 28, y: 1 },
+            body: ArrowBody::Basic,
+            head: ArrowHead::Basic,
+        });
+        arrows.insert(Arrow {
+            start: Point { x: 16, y: 5 },
+            middle: Point { x: 17, y: 5 },
+            end: Point { x: 18, y: 5 },
+            body: ArrowBody::Basic,
+            head: ArrowHead::Basic,
+        });
+        arrows.insert(Arrow {
+            start: Point { x: 26, y: 5 },
+            middle: Point { x: 27, y: 5 },
+            end: Point { x: 28, y: 5 },
+            body: ArrowBody::Basic,
+            head: ArrowHead::Basic,
+        });
+        arrows.insert(Arrow {
+            start: Point { x: 12, y: 3 },
+            middle: Point { x: 12, y: 5 },
+            end: Point { x: 18, y: 5 },
+            body: ArrowBody::Basic,
+            head: ArrowHead::Basic,
+        });
+        let map = Map { nodes, arrows };
+        let expected = "\
++---+     +---+     +---+     +---+
+| A | --> | B | --> | C | --> | D |
++---+     +---+     +---+     +---+
+            |                      
+            |       +---+     +---+
+            ------> | E | --> | F |
+                    +---+     +---+
 ";
         let output = map.get_picture();
         assert_eq!(expected, output);
