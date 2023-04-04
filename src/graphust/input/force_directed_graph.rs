@@ -78,12 +78,12 @@ impl Graph {
             placement: InnerGraphPlacement::new(),
         }
     }
-    
+
     pub fn add_node(&mut self, node_label: &str) {
         if self.nodes.iter().any(|node| node.name == node_label) {
             return;
         }
-        
+
         self.nodes.push(Node {
             name: node_label.to_string(),
             position: self.placement.get_next_position(),
@@ -94,8 +94,10 @@ impl Graph {
         if node_from_label == node_to_label {
             return;
         }
-        
-        let both_indices = self.nodes.iter()
+
+        let both_indices = self
+            .nodes
+            .iter()
             .enumerate()
             .filter(|(_, node)| node.name == node_from_label || node.name == node_to_label)
             .map(|(index, _)| index)
@@ -103,14 +105,15 @@ impl Graph {
         if both_indices.len() != 2 {
             panic!("Could not find both nodes");
         }
-        
-        let edge_already_exists = self.edges.iter()
-            .any(|edge| edge.from_index == both_indices[0] && edge.to_index == both_indices[1]
-            || edge.from_index == both_indices[1] && edge.to_index == both_indices[0]);
+
+        let edge_already_exists = self.edges.iter().any(|edge| {
+            edge.from_index == both_indices[0] && edge.to_index == both_indices[1]
+                || edge.from_index == both_indices[1] && edge.to_index == both_indices[0]
+        });
         if edge_already_exists {
             return;
         }
-        
+
         self.edges.push(Edge {
             from_index: both_indices[0],
             to_index: both_indices[1],
@@ -170,7 +173,7 @@ impl Graph {
         &mut self,
         attraction_strength: Option<f32>,
         repulsion_strength: Option<f32>,
-    )  -> Vec<NodeApproximation> {
+    ) -> Vec<NodeApproximation> {
         let attraction_strength = attraction_strength.unwrap_or(1.0);
         let repulsion_strength = repulsion_strength.unwrap_or(1.0);
         for _ in 0..100 {
@@ -238,22 +241,23 @@ impl Graph {
         let x_offset = 0 - min_x;
         let y_offset = 0 - min_y;
 
-        self.nodes.iter().map(|inner_node| {
-            NodeApproximation {
+        self.nodes
+            .iter()
+            .map(|inner_node| NodeApproximation {
                 name: inner_node.name.to_owned(),
                 position: PointApproximation {
                     x: (inner_node.position.x.round() as i32 + x_offset) as usize,
                     y: (inner_node.position.y.round() as i32 + y_offset) as usize,
                 },
-            }
-        }).collect()
+            })
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn inner_graph_placement_example_01() {
         let mut under_test = InnerGraphPlacement::new();
@@ -283,9 +287,9 @@ mod tests {
         let mut builder = String::new();
         for y in 0..=max_y {
             for x in 0..=max_x {
-                let potential_char = nodes_approximation.iter().find(|a| {
-                    a.position.x == x && a.position.y == y
-                });
+                let potential_char = nodes_approximation
+                    .iter()
+                    .find(|a| a.position.x == x && a.position.y == y);
                 match potential_char {
                     None => builder.push(' '),
                     Some(c) => builder.push(c.name.chars().next().unwrap()),

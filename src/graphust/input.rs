@@ -1,5 +1,5 @@
-use std::collections::{HashMap, HashSet};
 use crate::graphust::domain;
+use std::collections::{HashMap, HashSet};
 
 mod force_directed_graph;
 
@@ -13,16 +13,7 @@ struct InnerMapping {
 const BOX_WIDTH: usize = 4;
 const BOX_HEIGHT: usize = 3;
 
-fn get_arrow_anchor(node_label: &str, anchor: &domain::Point, direction: Direction) -> domain::Point {
-    let (x, y) = match direction {
-        Direction::Top => (anchor.x + 2, anchor.y - 1),
-        Direction::Bottom => (anchor.x + 2, anchor.y + BOX_HEIGHT),
-        Direction::Left => (anchor.x - 1, anchor.y + 1),
-        Direction::Right => (anchor.x + BOX_WIDTH + node_label.len(), anchor.y + 1),
-    };
-    domain::Point { x, y }
-}
-
+#[derive(PartialEq, Eq, Hash, Copy, Clone)]
 enum Direction {
     Top,
     Bottom,
@@ -102,7 +93,7 @@ pub fn read_input(text: &str) -> Result<domain::Map, String> {
         .iter()
         .map(|x| x.as_ref().unwrap())
         .collect::<Vec<_>>();
-    
+
     let mut force_directed_graph = force_directed_graph::Graph::new();
     for mapping in &inner_mapping {
         force_directed_graph.add_node(&mapping.source);
@@ -119,10 +110,16 @@ pub fn read_input(text: &str) -> Result<domain::Map, String> {
     Ok(map)
 }
 
-fn include_nodes(map: &mut domain::Map, approximation: &Vec<force_directed_graph::NodeApproximation>) {
+fn include_nodes(
+    map: &mut domain::Map,
+    approximation: &Vec<force_directed_graph::NodeApproximation>,
+) {
     for node in approximation {
         map.nodes.insert(
-            domain::Point { x: node.position.x * 4, y: node.position.y },
+            domain::Point {
+                x: node.position.x * 4,
+                y: node.position.y,
+            },
             domain::Node {
                 name: node.name.to_owned(),
                 border: domain::BorderType::Box,
@@ -131,54 +128,113 @@ fn include_nodes(map: &mut domain::Map, approximation: &Vec<force_directed_graph
     }
 }
 
-fn include_arrows(map: &mut domain::Map, inner_mappings: &Vec<&InnerMapping>) {
-    for mapping in inner_mappings {
-        let (position_from, node_from) = map.nodes.iter().find(|(_, node)| node.name == mapping.source).unwrap();
-        let (position_to, node_to) = map.nodes.iter().find(|(_, node)| node.name == mapping.target).unwrap();
+struct ArrowAnchorsForNode<'a> {
+    anchor: &'a domain::Point,
+    node_label: &'a str,
+    used_anchors: HashMap<Direction, usize>,
+}
+impl ArrowAnchorsForNode<'_> {
+    fn new<'a>(node_label: &'a str, anchor: &'a domain::Point) -> ArrowAnchorsForNode<'a> {
+        let mut used_anchors = HashMap::new();
+        used_anchors.insert(Direction::Top, 2);
+        used_anchors.insert(Direction::Bottom, 2);
+        used_anchors.insert(Direction::Left, 1);
+        used_anchors.insert(Direction::Right, 1);
+        ArrowAnchorsForNode {
+            anchor,
+            node_label,
+            used_anchors,
+        }
+    }
+    fn get_arrow_anchor_offset(&mut self, direction: Direction) -> usize {
+        let output = self.used_anchors.get(&direction).unwrap().to_owned();
+        let next_output = match (direction, output) {
+            (Direction::Left, 2) | (Direction::Right, 2) => 0,
+            _ => output + 1,
+        };
+        self.used_anchors.insert(direction, next_output);
+        output
+    }
+    fn get_arrow_anchor(&mut self, direction: Direction) -> domain::Point {
+        let offset = self.get_arrow_anchor_offset(direction);
+        let (x, y) = match direction {
+            Direction::Top => (self.anchor.x + offset, self.anchor.y - 1),
+            Direction::Bottom => (self.anchor.x + offset, self.anchor.y + BOX_HEIGHT),
+            Direction::Left => (self.anchor.x - 1, self.anchor.y + offset),
+            Direction::Right => (
+                self.anchor.x + BOX_WIDTH + self.node_label.len(),
+                self.anchor.y + offset,
+            ),
+        };
+        domain::Point { x, y }
+    }
+}
 
-        let mut arrow_start = domain::Point { ..*position_from };
-        let mut arrow_end = domain::Point { ..*position_to };
-        let arrow_middle = match (position_from.x, position_from.y, position_to.x, position_to.y) {
-            (x1, y1, x2, y2) if x1 < x2 && y1 < y2 => {
-                arrow_start = get_arrow_anchor(&node_from.name, position_from, Direction::Bottom);
-                arrow_end = get_arrow_anchor(&node_to.name, position_to, Direction::Left);
-                domain::Point { x: arrow_start.x, y: arrow_end.y }
-            },
-            (x1, y1, x2, y2) if x1 > x2 && y1 > y2 => {
-                arrow_start = get_arrow_anchor(&node_from.name, position_from, Direction::Left);
-                arrow_end = get_arrow_anchor(&node_to.name, position_to, Direction::Bottom);
-                domain::Point { x: arrow_end.x, y: arrow_start.y }
-            },
-            (x1, y1, x2, y2) if x1 > x2 && y1 < y2 => {
-                arrow_start = get_arrow_anchor(&node_from.name, position_from, Direction::Bottom);
-                arrow_end = get_arrow_anchor(&node_to.name, position_to, Direction::Right);
-                domain::Point { x: arrow_start.x, y: arrow_end.y }
-            },
-            (x1, y1, x2, y2) if x1 < x2 && y1 > y2 => {
-                arrow_start = get_arrow_anchor(&node_from.name, position_from, Direction::Right);
-                arrow_end = get_arrow_anchor(&node_to.name, position_to, Direction::Bottom);
-                domain::Point { x: arrow_end.x, y: arrow_start.y }
-            },
-            (x1, y1, x2, y2) if x1 == x2 && y1 < y2 => {
-                arrow_start = get_arrow_anchor(&node_from.name, position_from, Direction::Bottom);
-                arrow_end = get_arrow_anchor(&node_to.name, position_to, Direction::Top);
-                domain::Point { x: arrow_start.x, y: arrow_start.y + 1 }
-            },
-            (x1, y1, x2, y2) if x1 == x2 && y1 > y2 => {
-                arrow_start = get_arrow_anchor(&node_from.name, position_from, Direction::Top);
-                arrow_end = get_arrow_anchor(&node_to.name, position_to, Direction::Bottom);
-                domain::Point { x: arrow_start.x, y: arrow_end.y + 1 }
-            },
-            (x1, y1, x2, y2) if x1 < x2 && y1 == y2 => {
-                arrow_start = get_arrow_anchor(&node_from.name, position_from, Direction::Right);
-                arrow_end = get_arrow_anchor(&node_to.name, position_to, Direction::Left);
-                domain::Point { x: arrow_start.x + 1, y: arrow_start.y }
-            },
-            (x1, y1, x2, y2) if x1 > x2 && y1 == y2 => {
-                arrow_start = get_arrow_anchor(&node_from.name, position_from, Direction::Left);
-                arrow_end = get_arrow_anchor(&node_to.name, position_to, Direction::Right);
-                domain::Point { x: arrow_end.x + 1, y: arrow_start.y }
-            },
+fn include_arrows(map: &mut domain::Map, inner_mappings: &Vec<&InnerMapping>) {
+    let mut anchors_for_nodes = vec![];
+    for (anchor, node) in map.nodes.iter() {
+        anchors_for_nodes.push(ArrowAnchorsForNode::new(&node.name, anchor));
+    }
+    for mapping in inner_mappings {
+        let mut mutable_nodes = anchors_for_nodes
+            .iter_mut()
+            .filter(|node| node.node_label == mapping.source || node.node_label == mapping.target);
+        let (node_from, node_to) = match (mutable_nodes.next(), mutable_nodes.next()) {
+            (Some(from), Some(to)) if from.node_label == mapping.source => (from, to),
+            (Some(to), Some(from)) if from.node_label == mapping.source => (from, to),
+            _ => panic!("Could not find nodes for arrow"),
+        };
+
+        let (arrow_start, arrow_end) = match (
+            node_from.anchor.x,
+            node_from.anchor.y,
+            node_to.anchor.x,
+            node_to.anchor.y,
+        ) {
+            (x1, y1, x2, y2) if x1 < x2 && y1 < y2 => (
+                node_from.get_arrow_anchor(Direction::Bottom),
+                node_to.get_arrow_anchor(Direction::Left),
+            ),
+            (x1, y1, x2, y2) if x1 > x2 && y1 > y2 => (
+                node_from.get_arrow_anchor(Direction::Left),
+                node_to.get_arrow_anchor(Direction::Bottom),
+            ),
+            (x1, y1, x2, y2) if x1 > x2 && y1 < y2 => (
+                node_from.get_arrow_anchor(Direction::Bottom),
+                node_to.get_arrow_anchor(Direction::Right),
+            ),
+            (x1, y1, x2, y2) if x1 < x2 && y1 > y2 => (
+                node_from.get_arrow_anchor(Direction::Right),
+                node_to.get_arrow_anchor(Direction::Bottom),
+            ),
+            (x1, y1, x2, y2) if x1 == x2 && y1 < y2 => (
+                node_from.get_arrow_anchor(Direction::Bottom),
+                node_to.get_arrow_anchor(Direction::Top),
+            ),
+            (x1, y1, x2, y2) if x1 == x2 && y1 > y2 => (
+                node_from.get_arrow_anchor(Direction::Top),
+                node_to.get_arrow_anchor(Direction::Bottom),
+            ),
+            (x1, y1, x2, y2) if x1 < x2 && y1 == y2 => (
+                node_from.get_arrow_anchor(Direction::Right),
+                node_to.get_arrow_anchor(Direction::Left),
+            ),
+            (x1, y1, x2, y2) if x1 > x2 && y1 == y2 => (
+                node_from.get_arrow_anchor(Direction::Left),
+                node_to.get_arrow_anchor(Direction::Right),
+            ),
+            _ => continue,
+        };
+
+        let arrow_middle = match (arrow_start.x, arrow_start.y, arrow_end.x, arrow_end.y) {
+            (x1, y1, x2, y2) if x1 < x2 && y1 < y2 => domain::Point { x: x1, y: y2 },
+            (x1, y1, x2, y2) if x1 > x2 && y1 > y2 => domain::Point { x: x2, y: y1 },
+            (x1, y1, x2, y2) if x1 > x2 && y1 < y2 => domain::Point { x: x1, y: y2 },
+            (x1, y1, x2, y2) if x1 < x2 && y1 > y2 => domain::Point { x: x2, y: y1 },
+            (x1, y1, x2, y2) if x1 == x2 && y1 < y2 => domain::Point { x: x1, y: y1 + 1 },
+            (x1, y1, x2, y2) if x1 == x2 && y1 > y2 => domain::Point { x: x1, y: y2 + 1 },
+            (x1, y1, x2, y2) if x1 < x2 && y1 == y2 => domain::Point { x: x1 + 1, y: y1 },
+            (x1, y1, x2, y2) if x1 > x2 && y1 == y2 => domain::Point { x: x2 + 1, y: y1 },
             _ => continue,
         };
 
@@ -194,8 +250,8 @@ fn include_arrows(map: &mut domain::Map, inner_mappings: &Vec<&InnerMapping>) {
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
     use super::*;
+    use core::panic;
 
     #[test]
     fn get_map_example01() {
@@ -209,7 +265,7 @@ mod tests {
             },
         );
         nodes.insert(
-            domain::Point { x: 10, y: 0 },
+            domain::Point { x: 20, y: 0 },
             domain::Node {
                 name: "B".to_owned(),
                 border: domain::BorderType::Box,
@@ -217,9 +273,9 @@ mod tests {
         );
         let mut arrows: HashSet<domain::Arrow> = HashSet::new();
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 6, y: 1 },
-            middle: domain::Point { x: 7, y: 1 },
-            end: domain::Point { x: 8, y: 1 },
+            start: domain::Point { x: 5, y: 1 },
+            middle: domain::Point { x: 6, y: 1 },
+            end: domain::Point { x: 19, y: 1 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
@@ -258,14 +314,14 @@ B -> C";
             },
         );
         nodes.insert(
-            domain::Point { x: 10, y: 0 },
+            domain::Point { x: 24, y: 0 },
             domain::Node {
                 name: "B".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 20, y: 0 },
+            domain::Point { x: 48, y: 0 },
             domain::Node {
                 name: "C".to_owned(),
                 border: domain::BorderType::Box,
@@ -273,16 +329,16 @@ B -> C";
         );
         let mut arrows: HashSet<domain::Arrow> = HashSet::new();
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 6, y: 1 },
-            middle: domain::Point { x: 7, y: 1 },
-            end: domain::Point { x: 8, y: 1 },
+            start: domain::Point { x: 5, y: 1 },
+            middle: domain::Point { x: 6, y: 1 },
+            end: domain::Point { x: 23, y: 1 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 16, y: 1 },
-            middle: domain::Point { x: 17, y: 1 },
-            end: domain::Point { x: 18, y: 1 },
+            start: domain::Point { x: 29, y: 1 },
+            middle: domain::Point { x: 30, y: 1 },
+            end: domain::Point { x: 47, y: 1 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
@@ -311,14 +367,14 @@ C -> A";
             },
         );
         nodes.insert(
-            domain::Point { x: 10, y: 0 },
+            domain::Point { x: 12, y: 5 },
             domain::Node {
                 name: "B".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 20, y: 0 },
+            domain::Point { x: 24, y: 0 },
             domain::Node {
                 name: "C".to_owned(),
                 border: domain::BorderType::Box,
@@ -326,23 +382,23 @@ C -> A";
         );
         let mut arrows: HashSet<domain::Arrow> = HashSet::new();
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 6, y: 1 },
-            middle: domain::Point { x: 7, y: 1 },
-            end: domain::Point { x: 8, y: 1 },
+            start: domain::Point { x: 2, y: 3 },
+            middle: domain::Point { x: 2, y: 6 },
+            end: domain::Point { x: 11, y: 6 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 16, y: 1 },
-            middle: domain::Point { x: 17, y: 1 },
-            end: domain::Point { x: 18, y: 1 },
+            start: domain::Point { x: 17, y: 6 },
+            middle: domain::Point { x: 26, y: 6 },
+            end: domain::Point { x: 26, y: 3 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 22, y: 3 },
-            middle: domain::Point { x: 22, y: 4 },
-            end: domain::Point { x: 2, y: 3 },
+            start: domain::Point { x: 23, y: 1 },
+            middle: domain::Point { x: 6, y: 1 },
+            end: domain::Point { x: 5, y: 1 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
@@ -370,7 +426,7 @@ B -> A";
             },
         );
         nodes.insert(
-            domain::Point { x: 10, y: 0 },
+            domain::Point { x: 20, y: 0 },
             domain::Node {
                 name: "B".to_owned(),
                 border: domain::BorderType::Box,
@@ -378,16 +434,16 @@ B -> A";
         );
         let mut arrows: HashSet<domain::Arrow> = HashSet::new();
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 6, y: 1 },
-            middle: domain::Point { x: 7, y: 1 },
-            end: domain::Point { x: 8, y: 1 },
+            start: domain::Point { x: 5, y: 1 },
+            middle: domain::Point { x: 6, y: 1 },
+            end: domain::Point { x: 19, y: 1 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 8, y: 2 },
-            middle: domain::Point { x: 7, y: 2 },
-            end: domain::Point { x: 6, y: 2 },
+            start: domain::Point { x: 19, y: 2 },
+            middle: domain::Point { x: 6, y: 2 },
+            end: domain::Point { x: 5, y: 2 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
@@ -411,28 +467,28 @@ D -> A
 D -> B";
         let mut nodes: HashMap<domain::Point, domain::Node> = HashMap::new();
         nodes.insert(
-            domain::Point { x: 0, y: 0 },
+            domain::Point { x: 0, y: 1 },
             domain::Node {
                 name: "A".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 10, y: 0 },
+            domain::Point { x: 20, y: 0 },
             domain::Node {
                 name: "B".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 20, y: 0 },
+            domain::Point { x: 36, y: 3 },
             domain::Node {
                 name: "C".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 30, y: 0 },
+            domain::Point { x: 16, y: 5 },
             domain::Node {
                 name: "D".to_owned(),
                 border: domain::BorderType::Box,
@@ -440,37 +496,37 @@ D -> B";
         );
         let mut arrows: HashSet<domain::Arrow> = HashSet::new();
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 6, y: 1 },
-            middle: domain::Point { x: 7, y: 1 },
-            end: domain::Point { x: 8, y: 1 },
+            start: domain::Point { x: 15, y: 6 },
+            middle: domain::Point { x: 2, y: 6 },
+            end: domain::Point { x: 2, y: 4 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 16, y: 1 },
-            middle: domain::Point { x: 17, y: 1 },
-            end: domain::Point { x: 18, y: 1 },
+            start: domain::Point { x: 21, y: 7 },
+            middle: domain::Point { x: 24, y: 7 },
+            end: domain::Point { x: 24, y: 3 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 26, y: 1 },
-            middle: domain::Point { x: 27, y: 1 },
-            end: domain::Point { x: 28, y: 1 },
+            start: domain::Point { x: 5, y: 2 },
+            middle: domain::Point { x: 5, y: 3 },
+            end: domain::Point { x: 22, y: 3 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 32, y: 3 },
-            middle: domain::Point { x: 32, y: 4 },
-            end: domain::Point { x: 2, y: 3 },
+            start: domain::Point { x: 23, y: 3 },
+            middle: domain::Point { x: 23, y: 4 },
+            end: domain::Point { x: 35, y: 4 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 33, y: 3 },
-            middle: domain::Point { x: 33, y: 5 },
-            end: domain::Point { x: 12, y: 3 },
+            start: domain::Point { x: 38, y: 6 },
+            middle: domain::Point { x: 22, y: 6 },
+            end: domain::Point { x: 21, y: 6 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
@@ -494,42 +550,42 @@ B -> E
 E -> F";
         let mut nodes: HashMap<domain::Point, domain::Node> = HashMap::new();
         nodes.insert(
-            domain::Point { x: 0, y: 0 },
+            domain::Point { x: 0, y: 3 },
             domain::Node {
                 name: "A".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 10, y: 0 },
+            domain::Point { x: 24, y: 5 },
             domain::Node {
                 name: "B".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 20, y: 0 },
+            domain::Point { x: 40, y: 0 },
             domain::Node {
                 name: "C".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 30, y: 0 },
+            domain::Point { x: 64, y: 0 },
             domain::Node {
                 name: "D".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 20, y: 4 },
+            domain::Point { x: 36, y: 10 },
             domain::Node {
                 name: "E".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 30, y: 4 },
+            domain::Point { x: 52, y: 15 },
             domain::Node {
                 name: "F".to_owned(),
                 border: domain::BorderType::Box,
@@ -537,37 +593,37 @@ E -> F";
         );
         let mut arrows: HashSet<domain::Arrow> = HashSet::new();
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 6, y: 1 },
-            middle: domain::Point { x: 7, y: 1 },
-            end: domain::Point { x: 8, y: 1 },
+            start: domain::Point { x: 2, y: 6 },
+            middle: domain::Point { x: 3, y: 6 },
+            end: domain::Point { x: 23, y: 6 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 16, y: 1 },
-            middle: domain::Point { x: 17, y: 1 },
-            end: domain::Point { x: 18, y: 1 },
+            start: domain::Point { x: 29, y: 6 },
+            middle: domain::Point { x: 42, y: 6 },
+            end: domain::Point { x: 42, y: 3 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 26, y: 1 },
-            middle: domain::Point { x: 27, y: 1 },
-            end: domain::Point { x: 28, y: 1 },
+            start: domain::Point { x: 45, y: 1 },
+            middle: domain::Point { x: 46, y: 1 },
+            end: domain::Point { x: 63, y: 1 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 12, y: 3 },
-            middle: domain::Point { x: 12, y: 5 },
-            end: domain::Point { x: 18, y: 5 },
+            start: domain::Point { x: 26, y: 8 },
+            middle: domain::Point { x: 26, y: 11 },
+            end: domain::Point { x: 35, y: 11 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 26, y: 5 },
-            middle: domain::Point { x: 27, y: 5 },
-            end: domain::Point { x: 28, y: 5 },
+            start: domain::Point { x: 38, y: 13 },
+            middle: domain::Point { x: 38, y: 16 },
+            end: domain::Point { x: 51, y: 16 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
@@ -590,28 +646,28 @@ C -> A
 A -> D";
         let mut nodes: HashMap<domain::Point, domain::Node> = HashMap::new();
         nodes.insert(
-            domain::Point { x: 0, y: 0 },
+            domain::Point { x: 16, y: 5 },
             domain::Node {
                 name: "A".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 10, y: 0 },
+            domain::Point { x: 24, y: 0 },
             domain::Node {
                 name: "B".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 20, y: 0 },
+            domain::Point { x: 36, y: 4 },
             domain::Node {
                 name: "C".to_owned(),
                 border: domain::BorderType::Box,
             },
         );
         nodes.insert(
-            domain::Point { x: 10, y: 6 },
+            domain::Point { x: 0, y: 9 },
             domain::Node {
                 name: "D".to_owned(),
                 border: domain::BorderType::Box,
@@ -619,30 +675,30 @@ A -> D";
         );
         let mut arrows: HashSet<domain::Arrow> = HashSet::new();
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 6, y: 1 },
-            middle: domain::Point { x: 7, y: 1 },
-            end: domain::Point { x: 8, y: 1 },
+            start: domain::Point { x: 21, y: 6 },
+            middle: domain::Point { x: 26, y: 6 },
+            end: domain::Point { x: 26, y: 3 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 16, y: 1 },
-            middle: domain::Point { x: 17, y: 1 },
-            end: domain::Point { x: 18, y: 1 },
+            start: domain::Point { x: 27, y: 3 },
+            middle: domain::Point { x: 27, y: 5 },
+            end: domain::Point { x: 35, y: 5 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 22, y: 3 },
-            middle: domain::Point { x: 22, y: 4 },
-            end: domain::Point { x: 2, y: 3 },
+            start: domain::Point { x: 38, y: 7 },
+            middle: domain::Point { x: 22, y: 7 },
+            end: domain::Point { x: 21, y: 7 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
         arrows.insert(domain::Arrow {
-            start: domain::Point { x: 3, y: 3 },
-            middle: domain::Point { x: 3, y: 7 },
-            end: domain::Point { x: 8, y: 7 },
+            start: domain::Point { x: 18, y: 8 },
+            middle: domain::Point { x: 18, y: 10 },
+            end: domain::Point { x: 5, y: 10 },
             body: domain::ArrowBody::Basic,
             head: domain::ArrowHead::Basic,
         });
