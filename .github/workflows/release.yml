@@ -6,9 +6,7 @@ on:
             - release
 
 env:
-    RELEASE_VERSION: v0.1.10
-    RELEASE_NOTES: "Actual first release"
-
+    RELEASE_VERSION: v0.1.11
 
 jobs:
     release:
@@ -30,11 +28,5 @@ jobs:
               with:
                 tag_name: ${{ env.RELEASE_VERSION }}
                 files: graphust.tar.gz
-            - name: Update GIT tag
-              run: |
-                git config --global user.email "noreply@example.com"
-                git config --global user.name "${{ github.actor }}"
-                git tag ${{ env.RELEASE_VERSION }}
-                git push origin ${{ env.RELEASE_VERSION }}
             - name: Print SHA
               run: shasum -a 256 graphust.tar.gz | awk '{print $1}'
