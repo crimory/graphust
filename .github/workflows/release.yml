@@ -6,7 +6,7 @@ on:
             - release
 
 env:
-    RELEASE_VERSION: v0.1.3
+    RELEASE_VERSION: v0.1.4
     RELEASE_NOTES: "Actual first release"
 
 
