@@ -8,21 +8,19 @@ on:
 jobs:
     release:
         runs-on: macos-latest
-
         steps:
             - name: Checkout repository
               uses: actions/checkout@v3
-
-      - name: Install Rust
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          export PATH="$HOME/.cargo/bin:$PATH"
-          rustup update
-
-      - name: Build Release Binary
-        run: cargo build --release
-
-      - name: Create Release
-        run: git config --global user.email "github_actions@example.com"
-          git config --global user.name "GitHub Action"
-          git tag v0.1.0
-          git push origin v0.1.0
+            - name: Install Rust
+              run: |
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+                export PATH="$HOME/.cargo/bin:$PATH"
+                rustup update
+            - name: Build Release Binary
+              run: cargo build --release
+            - name: Create Release
+              run: |
+                git config --global user.email "github_actions@example.com"
+                git config --global user.name "GitHub Action"
+                git tag v0.1.0
+                git push origin v0.1.0
