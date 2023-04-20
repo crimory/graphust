@@ -5,6 +5,11 @@ on:
         branches:
             - release
 
+env:
+    RELEASE_VERSION: v0.1.1
+    RELEASE_NOTES: "Release notes for ${{ env.RELEASE_VERSION }}"
+
+
 jobs:
     release:
         runs-on: macos-latest
@@ -18,9 +23,31 @@ jobs:
                 rustup update
             - name: Build Release Binary
               run: cargo build --release
-            - name: Create Release
+            - name: Create Git Tag
               run: |
                 git config --global user.email "noreply@example.com"
                 git config --global user.name "${{ github.actor }}"
-                git tag v0.1.0
-                git push origin v0.1.0
+                git tag ${{ env.RELEASE_VERSION }}
+                git push origin ${{ env.RELEASE_VERSION }}
+            - name: Create Release
+              run: |
+                release_title="Release ${{ env.RELEASE_VERSION }}"
+                release_tag="${{ env.RELEASE_VERSION }}"
+                release_body="${{ env.RELEASE_VERSION }}"
+                token="${{ secrets.GITHUB_TOKEN }}"
+
+                # Create the release using the GitHub API
+                response=$(curl -X POST -sSL \
+                  -H "Authorization: token $token" \
+                  -H "Accept: application/vnd.github+json" \
+                  https://api.github.com/repos/${{ github.repository }}/releases \
+                  -d '{
+                    "tag_name": "'"${release_tag}"'",
+                    "name": "'"${release_title}"'",
+                    "body": "'"${release_body}"'",
+                    "draft": false,
+                    "prerelease": false
+                  }')
+
+                # Print the response from the API for debugging purposes
+                echo "$response"
