@@ -6,7 +6,7 @@ on:
             - release
 
 env:
-    RELEASE_VERSION: v0.1.11
+    RELEASE_VERSION: v0.1.12
 
 jobs:
     release:
@@ -22,11 +22,13 @@ jobs:
             - name: Build and package
               run: |
                 cargo build --release
-                tar czf graphust.tar.gz target/release/graphust
+                cd target/release
+                tar czf graphust.tar.gz graphust
+                cd ../..
             - name: Create release and attach binary
               uses: softprops/action-gh-release@v1
               with:
                 tag_name: ${{ env.RELEASE_VERSION }}
-                files: graphust.tar.gz
+                files: target/release/graphust.tar.gz
             - name: Print SHA
-              run: shasum -a 256 graphust.tar.gz | awk '{print $1}'
+              run: shasum -a 256 target/release/graphust.tar.gz | awk '{print $1}'
