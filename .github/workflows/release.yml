@@ -6,7 +6,7 @@ on:
             - release
 
 env:
-    RELEASE_VERSION: v0.1.5
+    RELEASE_VERSION: v0.1.6
     RELEASE_NOTES: "Actual first release"
 
 
@@ -39,12 +39,13 @@ jobs:
             - name: Create Release
               uses: actions/create-release@v1
               with:
-                token: ${{ secrets.GITHUB_TOKEN }}
                 tag_name: ${{ env.RELEASE_VERSION }}
                 release_name: Release ${{ env.RELEASE_VERSION }}
                 body: ${{ env.RELEASE_NOTES }}
                 draft: false
                 prerelease: false
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             - name: Attach Artifact to Release
               uses: actions/upload-release-asset@v1
               with:
