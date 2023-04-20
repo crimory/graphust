@@ -7,7 +7,7 @@ on:
 
 env:
     RELEASE_VERSION: v0.1.1
-    RELEASE_NOTES: "Release notes for ${{ env.RELEASE_VERSION }}"
+    RELEASE_NOTES: "Actual first release"
 
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
               run: |
                 release_title="Release ${{ env.RELEASE_VERSION }}"
                 release_tag="${{ env.RELEASE_VERSION }}"
-                release_body="${{ env.RELEASE_VERSION }}"
+                release_body="${{ env.RELEASE_NOTES }}"
                 token="${{ secrets.GITHUB_TOKEN }}"
 
                 # Create the release using the GitHub API
