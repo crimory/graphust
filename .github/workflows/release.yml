@@ -6,7 +6,7 @@ on:
             - release
 
 env:
-    RELEASE_VERSION: v0.1.1
+    RELEASE_VERSION: v0.1.2
     RELEASE_NOTES: "Actual first release"
 
 
@@ -23,6 +23,14 @@ jobs:
                 rustup update
             - name: Build Release Binary
               run: cargo build --release
+            - name: Package Binary and print hash
+              run: |
+                mkdir -p release
+                mv target/release/graphust release/graphust
+                cd release
+                tar czf graphust.tar.gz graphust
+                sha256sum graphust.tar.gz | awk '{print $1}'
+                cd ..
             - name: Create Git Tag
               run: |
                 git config --global user.email "noreply@example.com"
@@ -51,3 +59,8 @@ jobs:
 
                 # Print the response from the API for debugging purposes
                 echo "$response"
+            - name: Upload Binary
+              uses: actions/upload-artifact@v3
+              with:
+                name: graphust
+                path: release/graphust.tar.gz
