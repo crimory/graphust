@@ -6,7 +6,7 @@ on:
             - release
 
 env:
-    RELEASE_VERSION: v0.1.12
+    RELEASE_VERSION: v0.2.0
 
 jobs:
     release:
